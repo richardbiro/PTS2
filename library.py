@@ -1,5 +1,10 @@
 from itertools import count
 
+class Printer(object):
+    def print(self, msg):
+        print(msg)
+
+
 class Reservation(object):
     _ids = count(0)
     
@@ -10,44 +15,72 @@ class Reservation(object):
         self._book = book
         self._for = for_
         self._changes = 0
-        print(F'Created a reservation with id {self._id} of {self._book} '+
-              F'from {self._from} to {self._to} for {self._for}.')
 
     def overlapping(self, other):
-        ret = (self._book == other._book and self._to >= other._from 
-               and self._to >= other._from)
-        str = 'do'
+        return (self._book == other._book
+                and self._to >= other._from)
+            
+    def includes(self, date):
+        return (self._from <= date <= self._to)      
+        
+    def identify(self, date, book, for_):
+        return (book != self._book
+                and for_==self._for
+                and self.includes(date))   
+        
+    def change_for(self, for_):
+        old = self._for
+        self._for = for_
+        return old
+
+        
+        
+
+class ReservationString(Reservation):
+    _ids = count(0)
+    
+    def __init__(self, from_, to, book, for_, printer = Printer()):
+        super().__init__(fname, lname)
+        self.printer = printer
+        self.printer.print(F'Created a reservation with id {self._id} of {self._book} ' +
+                           F'from {self._from} to {self._to} for {self._for}.')
+
+    def overlapping(self, other):
+        ret = super().overlapping(other)
         if not ret:
+            str = 'do'
+        else:
             str = 'do not'
-        print(F'Reservations {self._id} and {other._id} {str} overlap')
+        self.printer.print(F'Reservations {self._id} and {other._id} {str} overlap')
         return ret
             
     def includes(self, date):
-        ret = (self._from <= date <= self._to)
+        ret = super().includes(date)
         str = 'includes'
         if not ret:
             str = 'does not include'
-        print(F'Reservation {self._id} {str} {date}')
+        self.printer.print(F'Reservation {self._id} {str} {date}')
         return ret        
         
     def identify(self, date, book, for_):
-        if book != self._book: 
-            print(F'Reservation {self._id} reserves {self._book} not {book}.')
-            return False
-        if for_!=self._for:
-            print(F'Reservation {self._id} is for {self._for} not {for_}.')
-            return False
-        if not self.includes(date):
-            print(F'Reservation {self._id} is from {self._from} to {self._to} which '+
-                  F'does not include {date}.')
-            return False
-        print(F'Reservation {self._id} is valid {for_} of {book} on {date}.')
-        return True        
+        ret = super().identify(date, book, for_)
+        if ret:
+            self.printer.print(F'Reservation {self._id} is valid {for_} of {book} on {date}.')
+        elif book != self._book: 
+            self.printer.print(F'Reservation {self._id} reserves {self._book} not {book}.')
+        elif for_!=self._for:
+            self.printer.print(F'Reservation {self._id} is for {self._for} not {for_}.')
+        else:
+            self.printer.print(F'Reservation {self._id} is from {self._from} to {self._to} which ' +
+                               F'does not include {date}.')
+        return ret   
         
     def change_for(self, for_):
-        print(F'Reservation {self._id} moved from {self._for} to {for_}')
-        self._for = for_
-        
+        ret = super().change_for(for_)
+        print(F'Reservation {self._id} moved from {ret} to {for_}')
+        return ret
+
+
 
 class Library(object):
     def __init__(self):
@@ -57,65 +90,115 @@ class Library(object):
         print(F'Library created.')
                 
     def add_user(self, name):
-        if name in self._users:
-            print(F'User not created, user with name {name} already exists.')
-            return False
-        self._users.add(name)
-        print(F'User {name} created.')
-        return True
+        unique = not (name in self._users)
+        if unique:
+            self._users.add(name) 
+        return unique
 
     def add_book(self, name):
         self._books[name] = self._books.get(name, 0) + 1
-        print(F'Book {name} added. We have {self._books[name]} coppies of the book.')
 
     def reserve_book(self, user, book, date_from, date_to):
         book_count = self._books.get(book, 0)
-        if user not in self._users:
-            print(F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. '+
-                  F'User does not exist.')
+        if (user not in self._users or
+            date_from > date_to or
+            book_count == 0):
             return False
-        if date_from > date_to:
-            print(F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. '+
-                  F'Incorrect dates.')
-            return False
-        if book_count == 0:
-            print(F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. '+
-                  F'We do not have that book.')
-            return False
+
         desired_reservation = Reservation(date_from, date_to, book, user)
         relevant_reservations = [res for res in self._reservations
                                  if desired_reservation.overlapping(res)] + [desired_reservation]
+        
         #we check that if we add this reservation then for every reservation record that starts 
         #between date_from and date_to no more than book_count books are reserved.
         for from_ in [res._from for res in relevant_reservations]:
             if desired_reservation.includes(from_):
                 if sum([rec.includes(from_) for rec in relevant_reservations]) > book_count:
-                    print(F'We cannot reserve book {book} for {user} from {date_from} '+
-                          F'to {date_to}. We do not have enough books.')
                     return False
+                
         self._reservations+=[desired_reservation]
         self._reservations.sort(key=lambda x:x._from) #to lazy to make a getter
-        print(F'Reservation {desired_reservation._id} included.')
         return True
 
     def check_reservation(self, user, book, date):
-        res = any([res.identify(date, book, user) for res in self._reservations])
-        str = 'exists'
-        if not res:
-            str = 'does not exist'
-        print(F'Reservation for {user} of {book} on {date} {str}.')
-        return res        
+        return any([res.identify(date, book, user) for res in self._reservations])    
 
     def change_reservation(self, user, book, date, new_user):
-        relevant_reservations = [res for res in self._reservations 
-                                     if res.identify(date, book, user)]
-        if not relevant_reservations:        
-            print(F'Reservation for {user} of {book} on {date} does not exist.')
-            return False
-        if new_user not in self._users:
-            print(F'Cannot change the reservation as {new_user} does not exist.')
-            return False
+        change = (any([res for res in self._reservations
+                       if res.identify(date, book, user)])
+                  and new_user in self._users)
+        if change:
+            relevant_reservations[0].change_for(new_user)
+        return change
+
+
+
+class LibraryString(Library):
+    def __init__(self, printer = Printer()):
+        super().__init__()
+        self.printer = printer()
+        self.printer.print(F'Library created.')
+                
+    def add_user(self, name):
+        ret = super().add_user(name)
+        if not ret:
+            self.printer.print(F'User not created, user with name {name} already exists.')
+        else:
+            print(F'User {name} created.')
+        return ret
+
+    def add_book(self, name):
+        super().add_book(name)
+        self.printer.print(F'Book {name} added. We have {self._books[name]} coppies of the book.')
+
+    def reserve_book(self, user, book, date_from, date_to):
+        ret = super().reserve_book(user, book, date_from, date_to)
+
+        desired_reservation = Reservation(date_from, date_to, book, user)
+        
+        if not ret:
+            if user not in self._users:
+                self.printer.print(F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. ' +
+                                   F'User does not exist.')
+            elif date_from > date_to:
+                self.printer.print(F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. ' +
+                                   F'Incorrect dates.')
+            elif self._books.get(book, 0):
+                self.printer.print(F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. ' +
+                                   F'We do not have that book.')
             
-        print(F'Reservation for {user} of {book} on {date} changed to {new_user}.')        
-        relevant_reservations[0].change_for(new_user)
-        return True
+            relevant_reservations = [res for res in self._reservations
+                                     if desired_reservation.overlapping(res)] + [desired_reservation]
+            #we check that if we add this reservation then for every reservation record that starts 
+            #between date_from and date_to no more than book_count books are reserved.
+            for from_ in [res._from for res in relevant_reservations]:
+                if desired_reservation.includes(from_):
+                    if sum([rec.includes(from_) for rec in relevant_reservations]) > book_count:
+                        self.printer.print(F'We cannot reserve book {book} for {user} from {date_from} ' +
+                                           F'to {date_to}. We do not have enough books.')
+                        break
+                    
+        else:
+            self._reservations+=[desired_reservation]
+            self._reservations.sort(key=lambda x:x._from) #to lazy to make a getter
+            self.printer.print(F'Reservation {desired_reservation._id} included.')
+            
+        return ret
+
+    def check_reservation(self, user, book, date):
+        ret = super().check_reservation(user, book, date)
+        str = 'exists'
+        if not ret:
+            str = 'does not exist'
+        self.printer.print(F'Reservation for {user} of {book} on {date} {str}.')
+        return ret        
+
+    def change_reservation(self, user, book, date, new_user):
+        ret = super().change_reservation(user, book, date, new_user)
+        if ret:
+            self.printer.print(F'Reservation for {user} of {book} on {date} changed to {new_user}.')
+        elif new_user not in self._users:
+            self.printer.print(F'Cannot change the reservation as {new_user} does not exist.')
+        else:
+            self.printer.print(F'Reservation for {user} of {book} on {date} does not exist.')
+        return ret
