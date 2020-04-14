@@ -24,14 +24,12 @@ class Reservation(object):
         return (self._from <= date <= self._to)      
         
     def identify(self, date, book, for_):
-        return (book != self._book
-                and for_==self._for
+        return (book == self._book
+                and for_ == self._for
                 and self.includes(date))   
         
     def change_for(self, for_):
-        old = self._for
         self._for = for_
-        return old
 
         
         
@@ -39,11 +37,10 @@ class Reservation(object):
 class ReservationString(Reservation):
     _ids = count(0)
     
-    def __init__(self, from_, to, book, for_, printer = Printer()):
-        super().__init__(fname, lname)
-        self.printer = printer
-        self.printer.print(F'Created a reservation with id {self._id} of {self._book} ' +
-                           F'from {self._from} to {self._to} for {self._for}.')
+    def __init__(self, from_, to, book, for_, printer = Printer):
+        super().__init__(from_, to, book, for_)
+        self.printer = printer()
+        self.printer.print(F'Created a reservation with id {self._id} of {self._book} from {self._from} to {self._to} for {self._for}.')
 
     def overlapping(self, other):
         ret = super().overlapping(other)
@@ -64,21 +61,21 @@ class ReservationString(Reservation):
         
     def identify(self, date, book, for_):
         ret = super().identify(date, book, for_)
-        if ret:
-            self.printer.print(F'Reservation {self._id} is valid {for_} of {book} on {date}.')
-        elif book != self._book: 
+        if book != self._book: 
             self.printer.print(F'Reservation {self._id} reserves {self._book} not {book}.')
         elif for_!=self._for:
             self.printer.print(F'Reservation {self._id} is for {self._for} not {for_}.')
-        else:
+        elif not self.includes(date):
             self.printer.print(F'Reservation {self._id} is from {self._from} to {self._to} which ' +
                                F'does not include {date}.')
+        else:
+            self.printer.print(F'Reservation {self._id} is valid {for_} of {book} on {date}.')
         return ret   
         
     def change_for(self, for_):
-        ret = super().change_for(for_)
-        print(F'Reservation {self._id} moved from {ret} to {for_}')
-        return ret
+        print(F'Reservation {self._id} moved from {self._for} to {for_}')
+        super().change_for(for_)
+        
 
 
 
@@ -87,7 +84,6 @@ class Library(object):
         self._users = set()
         self._books = {}   #maps name to count
         self._reservations = [] #Reservations sorted by from
-        print(F'Library created.')
                 
     def add_user(self, name):
         unique = not (name in self._users)
@@ -98,14 +94,14 @@ class Library(object):
     def add_book(self, name):
         self._books[name] = self._books.get(name, 0) + 1
 
-    def reserve_book(self, user, book, date_from, date_to):
+    def reserve_book(self, user, book, date_from, date_to, Reservation_Factory = Reservation):
         book_count = self._books.get(book, 0)
         if (user not in self._users or
             date_from > date_to or
             book_count == 0):
             return False
 
-        desired_reservation = Reservation(date_from, date_to, book, user)
+        desired_reservation = Reservation_Factory(date_from, date_to, book, user)
         relevant_reservations = [res for res in self._reservations
                                  if desired_reservation.overlapping(res)] + [desired_reservation]
         
@@ -124,8 +120,9 @@ class Library(object):
         return any([res.identify(date, book, user) for res in self._reservations])    
 
     def change_reservation(self, user, book, date, new_user):
-        change = (any([res for res in self._reservations
-                       if res.identify(date, book, user)])
+        relevant_reservations = [res for res in self._reservations
+                                 if res.identify(date, book, user)]
+        change = (any(relevant_reservations)
                   and new_user in self._users)
         if change:
             relevant_reservations[0].change_for(new_user)
@@ -134,7 +131,7 @@ class Library(object):
 
 
 class LibraryString(Library):
-    def __init__(self, printer = Printer()):
+    def __init__(self, printer = Printer):
         super().__init__()
         self.printer = printer()
         self.printer.print(F'Library created.')
@@ -144,17 +141,19 @@ class LibraryString(Library):
         if not ret:
             self.printer.print(F'User not created, user with name {name} already exists.')
         else:
-            print(F'User {name} created.')
+            self.printer.print(F'User {name} created.')
         return ret
 
     def add_book(self, name):
         super().add_book(name)
-        self.printer.print(F'Book {name} added. We have {self._books[name]} coppies of the book.')
+        self.printer.print(F'Book {name} added. We have {self._books.get(name, 0) + 1} coppies of the book.')
 
-    def reserve_book(self, user, book, date_from, date_to):
-        ret = super().reserve_book(user, book, date_from, date_to)
+    def reserve_book(self, user, book, date_from, date_to, Reservation_Factory = Reservation):
+        ret = super().reserve_book(user, book, date_from, date_to, Reservation_Factory)
 
-        desired_reservation = Reservation(date_from, date_to, book, user)
+        desired_reservation = Reservation_Factory(date_from, date_to, book, user)
+        relevant_reservations = [res for res in self._reservations
+                                     if desired_reservation.overlapping(res)] + [desired_reservation]
         
         if not ret:
             if user not in self._users:
@@ -167,8 +166,7 @@ class LibraryString(Library):
                 self.printer.print(F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. ' +
                                    F'We do not have that book.')
             
-            relevant_reservations = [res for res in self._reservations
-                                     if desired_reservation.overlapping(res)] + [desired_reservation]
+            
             #we check that if we add this reservation then for every reservation record that starts 
             #between date_from and date_to no more than book_count books are reserved.
             for from_ in [res._from for res in relevant_reservations]:
