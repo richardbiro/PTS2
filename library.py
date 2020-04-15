@@ -94,14 +94,15 @@ class Library(object):
     def add_book(self, name):
         self._books[name] = self._books.get(name, 0) + 1
 
-    def reserve_book(self, user, book, date_from, date_to, Reservation_Factory = Reservation):
+    def reserve_book(self, user, book, date_from, date_to, ReservationFactory = Reservation):
         book_count = self._books.get(book, 0)
+        
         if (user not in self._users or
             date_from > date_to or
             book_count == 0):
             return False
 
-        desired_reservation = Reservation_Factory(date_from, date_to, book, user)
+        desired_reservation = ReservationFactory(date_from, date_to, book, user)
         relevant_reservations = [res for res in self._reservations
                                  if desired_reservation.overlapping(res)] + [desired_reservation]
         
@@ -146,12 +147,12 @@ class LibraryString(Library):
 
     def add_book(self, name):
         super().add_book(name)
-        self.printer.print(F'Book {name} added. We have {self._books.get(name, 0) + 1} coppies of the book.')
+        self.printer.print(F'Book {name} added. We have {self._books[name]} coppies of the book.')
 
-    def reserve_book(self, user, book, date_from, date_to, Reservation_Factory = Reservation):
-        ret = super().reserve_book(user, book, date_from, date_to, Reservation_Factory)
+    def reserve_book(self, user, book, date_from, date_to, ReservationFactory = Reservation):
+        ret = super().reserve_book(user, book, date_from, date_to, ReservationFactory)
 
-        desired_reservation = Reservation_Factory(date_from, date_to, book, user)
+        desired_reservation = ReservationFactory(date_from, date_to, book, user)
         relevant_reservations = [res for res in self._reservations
                                      if desired_reservation.overlapping(res)] + [desired_reservation]
         
