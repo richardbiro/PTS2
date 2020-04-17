@@ -1,5 +1,6 @@
-from library import *
+from library import Library
 from unittest import main, TestCase
+from itertools import count
 
 class MockReservation(object):
     _ids = count(0)
@@ -47,8 +48,6 @@ class TestLibrary(TestCase):
 
     def test_add_user_same(self):
         self.assertFalse(self.lib.add_user('person1'))
-        self.assertFalse(self.lib.add_user('person2'))
-        self.assertFalse(self.lib.add_user('person3'))
 
     def test_add_user_different(self):
         self.assertTrue(self.lib.add_user('person4'))
@@ -70,26 +69,26 @@ class TestLibrary(TestCase):
         
 
     def test_reserve_book_wrong_user(self):
-        self.assertFalse(self.lib.reserve_book('person4','book1',0,2,MockReservation))
-        self.assertFalse(self.lib.reserve_book('person5','book2',3,3,MockReservation))
+        self.assertEqual(self.lib.reserve_book('person4','book1',0,2,MockReservation),(False,'wronguser'))
+        self.assertEqual(self.lib.reserve_book('person5','book2',3,3,MockReservation),(False,'wronguser'))
 
     def test_reserve_book_wrong_date_format(self):
-        self.assertFalse(self.lib.reserve_book('person1','book1',2,1,MockReservation))
-        self.assertFalse(self.lib.reserve_book('person2','book2',3,1,MockReservation))
+        self.assertEqual(self.lib.reserve_book('person1','book1',2,1,MockReservation),(False,'wrongdate'))
+        self.assertEqual(self.lib.reserve_book('person2','book2',3,1,MockReservation),(False,'wrongdate'))
 
     def test_reserve_book_wrong_book(self):
-        self.assertFalse(self.lib.reserve_book('person1','book4',0,2,MockReservation))
-        self.assertFalse(self.lib.reserve_book('person2','book5',0,2,MockReservation))
+        self.assertEqual(self.lib.reserve_book('person1','book4',0,2,MockReservation),(False,'wrongbook'))
+        self.assertEqual(self.lib.reserve_book('person2','book5',0,2,MockReservation),(False,'wrongbook'))
 
     def test_reserve_book_not_enough_books(self):
-        self.assertFalse(self.lib.reserve_book('person2','book1',1,2,MockReservation))
-        self.assertFalse(self.lib.reserve_book('person1','book2',3,3,MockReservation))
+        self.assertEqual(self.lib.reserve_book('person2','book1',1,2,MockReservation),(False,'nobook'))
+        self.assertEqual(self.lib.reserve_book('person1','book2',3,3,MockReservation),(False,'nobook'))
 
     def test_reserve_book_correct(self):
-        self.assertTrue(self.lib.reserve_book('person1','book1',3,8,MockReservation))
-        self.assertTrue(self.lib.reserve_book('person2','book3',3,6,MockReservation))
-        self.assertTrue(self.lib.reserve_book('person1','book3',6,7,MockReservation))
-        self.assertTrue(self.lib.reserve_book('person3','book2',0,0,MockReservation))
+        self.assertEqual(self.lib.reserve_book('person1','book1',3,8,MockReservation),(True,5))
+        self.assertEqual(self.lib.reserve_book('person2','book3',3,6,MockReservation),(True,6))
+        self.assertEqual(self.lib.reserve_book('person1','book3',6,7,MockReservation),(True,7))
+        self.assertEqual(self.lib.reserve_book('person3','book2',0,0,MockReservation),(True,8))
 
 
 

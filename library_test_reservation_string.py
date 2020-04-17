@@ -1,4 +1,4 @@
-from library import *
+from library import ReservationString
 from unittest import main, TestCase
 
 class MockPrinter(object):

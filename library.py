@@ -18,7 +18,8 @@ class Reservation(object):
 
     def overlapping(self, other):
         return (self._book == other._book
-                and self._to >= other._from)
+                and self._to >= other._from
+                and self._from <= other._to)
             
     def includes(self, date):
         return (self._from <= date <= self._to)      
@@ -73,8 +74,9 @@ class ReservationString(Reservation):
         return ret   
         
     def change_for(self, for_):
-        print(F'Reservation {self._id} moved from {self._for} to {for_}')
         super().change_for(for_)
+        self.printer.print(F'Reservation {self._id} moved from {self._for} to {for_}')
+        
         
 
 
@@ -95,12 +97,15 @@ class Library(object):
         self._books[name] = self._books.get(name, 0) + 1
 
     def reserve_book(self, user, book, date_from, date_to, ReservationFactory = Reservation):
+        #I return tuples in classes Library and LibraryString in order to avoid repeated code 
         book_count = self._books.get(book, 0)
         
-        if (user not in self._users or
-            date_from > date_to or
-            book_count == 0):
-            return False
+        if user not in self._users:
+            return (False,'wronguser')
+        if date_from > date_to:
+            return (False,'wrongdate')
+        if book_count == 0:
+            return (False,'wrongbook')
 
         desired_reservation = ReservationFactory(date_from, date_to, book, user)
         relevant_reservations = [res for res in self._reservations
@@ -111,11 +116,11 @@ class Library(object):
         for from_ in [res._from for res in relevant_reservations]:
             if desired_reservation.includes(from_):
                 if sum([rec.includes(from_) for rec in relevant_reservations]) > book_count:
-                    return False
+                    return (False,'nobook')
                 
         self._reservations+=[desired_reservation]
         self._reservations.sort(key=lambda x:x._from) #to lazy to make a getter
-        return True
+        return (True,desired_reservation._id)
 
     def check_reservation(self, user, book, date):
         return any([res.identify(date, book, user) for res in self._reservations])    
@@ -151,36 +156,20 @@ class LibraryString(Library):
 
     def reserve_book(self, user, book, date_from, date_to, ReservationFactory = Reservation):
         ret = super().reserve_book(user, book, date_from, date_to, ReservationFactory)
-
-        desired_reservation = ReservationFactory(date_from, date_to, book, user)
-        relevant_reservations = [res for res in self._reservations
-                                     if desired_reservation.overlapping(res)] + [desired_reservation]
         
-        if not ret:
-            if user not in self._users:
-                self.printer.print(F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. ' +
-                                   F'User does not exist.')
-            elif date_from > date_to:
-                self.printer.print(F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. ' +
-                                   F'Incorrect dates.')
-            elif self._books.get(book, 0):
-                self.printer.print(F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. ' +
-                                   F'We do not have that book.')
-            
-            
-            #we check that if we add this reservation then for every reservation record that starts 
-            #between date_from and date_to no more than book_count books are reserved.
-            for from_ in [res._from for res in relevant_reservations]:
-                if desired_reservation.includes(from_):
-                    if sum([rec.includes(from_) for rec in relevant_reservations]) > book_count:
-                        self.printer.print(F'We cannot reserve book {book} for {user} from {date_from} ' +
-                                           F'to {date_to}. We do not have enough books.')
-                        break
+        if not ret[0]:
+            default = F'We cannot reserve book {book} for {user} from {date_from} to {date_to}. '
+            if ret[1] == 'wronguser':
+                self.printer.print(default + F'User does not exist.')
+            elif ret[1] == 'wrongdate':
+                self.printer.print(default + F'Incorrect dates.')
+            elif ret[1] == 'wrongbook':
+                self.printer.print(default + F'We do not have that book.')
+            else:
+                self.printer.print(default + F'We do not have enough books.')
                     
         else:
-            self._reservations+=[desired_reservation]
-            self._reservations.sort(key=lambda x:x._from) #to lazy to make a getter
-            self.printer.print(F'Reservation {desired_reservation._id} included.')
+            self.printer.print(F'Reservation {ret[1]} included.')
             
         return ret
 

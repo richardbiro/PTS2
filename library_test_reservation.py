@@ -1,4 +1,4 @@
-from library import *
+from library import Reservation
 from unittest import main, TestCase
 
 
@@ -80,14 +80,7 @@ class TestReservation(TestCase):
 
     def test_identify_changed_person(self):
         self.res1.change_for('person4')
-        self.assertFalse(self.res1.identify(2, 'book1', 'person1'))
-        self.assertTrue(self.res1.identify(2, 'book1', 'person4'))
-
-    def test_identify_twice_changed_person(self):
-        self.res2.change_for('person3')
-        self.res2.change_for('person2')
-        self.assertFalse(self.res2.identify(3, 'book2', 'person3'))
-        self.assertTrue(self.res2.identify(3, 'book2', 'person2'))
+        self.assertEqual(self.res1._for,'person4')
 
     def test_identify_multiple_times_changed_person(self):
         self.res3.change_for('person4')
@@ -95,10 +88,7 @@ class TestReservation(TestCase):
         self.res3.change_for('person2')
         self.res3.change_for('person1')
         self.res3.change_for('person4')
-        self.assertFalse(self.res3.identify(3, 'book2', 'person1'))
-        self.assertFalse(self.res3.identify(3, 'book2', 'person2'))
-        self.assertFalse(self.res3.identify(3, 'book2', 'person3'))
-        self.assertTrue(self.res3.identify(3, 'book2', 'person4'))
+        self.assertEqual(self.res3._for,'person4')
 
 
 
